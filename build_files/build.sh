@@ -10,7 +10,32 @@ set -ouex pipefail
 # https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/43/x86_64/repoview/index.html&protocol=https&redirect=1
 
 # this installs a package from fedora repos
-dnf5 install -y tmux 
+dnf5 install -y tmux
+dnf5 install -y niri wl-mirror kitty kanshi 
+
+# Install Dank Material Shell
+sudo curl --output-dir "/etc/yum.repos.d/" \
+  --remote-name "https://copr.fedorainfracloud.org/coprs/avengemedia/dms/repo/fedora-$(rpm -E %fedora)/avengemedia-dms-fedora-$(rpm -E %fedora).repo"
+dnf -y install quickshell dms greetd dms-greeter --allowerasing 
+#
+# Install greetd login manager with dank configuration (still needs some work)
+mkdir -p /etc/greetd/
+cat > /etc/greetd/config.toml << EOF
+[terminal]
+vt = 1
+[default_session]
+user = "greeter"
+command = "dms-greeter --command niri"
+EOF
+rm -f /etc/systemd/system/display-manager.service
+ln -s /usr/lib/systemd/system/greetd.service /etc/systemd/system/display-manager.service
+systemctl enable --force greetd.service
+
+mkdir -p /etc/skel/.config/systemd/user/graphical-session.target.wants
+ln -s /usr/lib/systemd/user/dms.service /etc/skel/.config/systemd/user/graphical-session.target.wants/
+mkdir -p /etc/skel/.config/niri/
+cp -rf /ctx/dot_config/niri/config.kdl /etc/skel/.config/niri/
+
 
 # Use a COPR Example:
 #
@@ -22,3 +47,9 @@ dnf5 install -y tmux
 #### Example for enabling a System Unit File
 
 systemctl enable podman.socket
+
+## CLEAN UP
+# Clean up dnf cache to reduce image size
+dnf5 -y clean all
+rm -rf /run/dnf /run/selinux-policy
+rm -rf /var/lib/dnf
